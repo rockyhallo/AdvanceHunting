@@ -1,0 +1,85 @@
+// Advanced Hunting queries: detect internet-exposable MCP (Model Context Protocol) servers
+// running on managed devices/servers, based on the fingerprints published by Knostic's
+// Shodan-based MCP-Scanner research (see ../research/mcp-server-internet-exposure.md).
+//
+// Target: Microsoft 365 Defender / Microsoft Sentinel Advanced Hunting (KQL).
+// Tables used: DeviceProcessEvents, DeviceNetworkEvents, DeviceNetworkInfo.
+
+// ---------------------------------------------------------------------------
+// 1) Processes that look like MCP server frameworks/runtimes starting up.
+//    Flags dev/hackathon MCP servers spun up on servers or cloud VMs.
+// ---------------------------------------------------------------------------
+let mcpProcessSignals = dynamic([
+    "fastmcp", "fast-mcp", "mcp-framework", "mcp_framework", "python-mcp", "mcp-python",
+    "@modelcontextprotocol", "anthropic/mcp", "mcp-server", "mcp_server", "mcpserver",
+    "model context protocol", "modelcontextprotocol"
+]);
+DeviceProcessEvents
+| where Timestamp > ago(14d)
+| where ProcessCommandLine has_any (mcpProcessSignals)
+    or FolderPath has_any (mcpProcessSignals)
+    or InitiatingProcessCommandLine has_any (mcpProcessSignals)
+| project Timestamp, DeviceName, DeviceId, AccountName, FileName, FolderPath,
+          ProcessCommandLine, InitiatingProcessFileName, InitiatingProcessCommandLine
+| order by Timestamp desc;
+
+// ---------------------------------------------------------------------------
+// 2) Devices listening on common MCP dev ports (3000/5000/8000/8080/8787/6274)
+//    on all interfaces — the classic "bound to 0.0.0.0" misconfiguration.
+//    Join with (1) to prioritize hosts that are BOTH running an MCP-looking
+//    process AND listening on one of these ports.
+// ---------------------------------------------------------------------------
+let mcpPorts = dynamic([3000, 5000, 8000, 8080, 8787, 6274, 6277]);
+let listeningMcpPorts =
+    DeviceNetworkEvents
+    | where Timestamp > ago(14d)
+    | where ActionType == "ListeningConnectionCreated"
+    | where LocalPort in (mcpPorts)
+    | project Timestamp, DeviceId, DeviceName, LocalIP, LocalPort, InitiatingProcessFileName,
+              InitiatingProcessCommandLine;
+listeningMcpPorts
+| where InitiatingProcessCommandLine has_any (mcpProcessSignals)
+    or InitiatingProcessFileName has_any (dynamic(["python", "python3", "node", "uvicorn", "npx"]))
+| order by Timestamp desc;
+
+// ---------------------------------------------------------------------------
+// 3) Inbound connections to a locally-hosted MCP-looking port from outside the
+//    corporate network — i.e. it's actually being reached from the internet,
+//    not just listening. Adjust the private-range exclusion to your own CIDRs.
+// ---------------------------------------------------------------------------
+DeviceNetworkEvents
+| where Timestamp > ago(14d)
+| where ActionType == "InboundConnectionAccepted"
+| where LocalPort in (mcpPorts)
+| where not(RemoteIP startswith "10." or RemoteIP startswith "192.168."
+    or RemoteIP matches regex @"^172\.(1[6-9]|2[0-9]|3[0-1])\.")
+| project Timestamp, DeviceId, DeviceName, LocalIP, LocalPort, RemoteIP, RemoteUrl,
+          InitiatingProcessFileName, InitiatingProcessCommandLine
+| order by Timestamp desc;
+
+// ---------------------------------------------------------------------------
+// 4) Outbound calls from a host to a known cloud MCP hosting pattern
+//    (workers.dev, vercel, railway, herokuapp) — useful for spotting shadow
+//    MCP usage / unsanctioned third-party MCP servers being called by agents
+//    running inside the environment.
+// ---------------------------------------------------------------------------
+DeviceNetworkEvents
+| where Timestamp > ago(14d)
+| where ActionType == "ConnectionSuccess"
+| where RemoteUrl has_any (dynamic([
+        "workers.dev", "vercel.app", "railway.app", "herokuapp.com"
+    ]))
+| where RemoteUrl has_any (dynamic(["mcp", "sse", "jsonrpc"]))
+| project Timestamp, DeviceId, DeviceName, RemoteUrl, RemoteIP, RemotePort,
+          InitiatingProcessFileName, InitiatingProcessCommandLine
+| order by Timestamp desc;
+
+// Triage guidance:
+//   - Any hit in (3) is high priority: a managed device is accepting external
+//     connections on an MCP-shaped port. Confirm whether auth (OAuth 2.1) is
+//     enforced before treating as expected.
+//   - Combine (1)+(2) to find MCP servers before they become internet-reachable
+//     (shift-left: catch at deploy time, not after a Shodan hit).
+//   - Cross-reference exposed asset inventory / EASM tooling against the Shodan
+//     fingerprint list in ../research/mcp-server-internet-exposure.md for
+//     external validation of what these queries surface internally.
