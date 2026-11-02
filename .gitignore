@@ -1,0 +1,11 @@
+labs/logs/
+__pycache__/
+*.pkl
+*.pyc
+labs/lab03-rag/kb.json
+labs/lab04-agents/memory.json
+labs/lab04-agents/outbox.jsonl
+labs/lab05-supply-chain/*.json
+labs/lab05-supply-chain/PWNED.txt
+labs/lab07-automation/results.json
+labs/lab07-automation/asr_history.csv

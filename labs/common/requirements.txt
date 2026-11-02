@@ -1,0 +1,4 @@
+# All labs run on the Python standard library alone (Python 3.10+).
+# Optional extras for Module 07:
+garak                 # LLM vulnerability scanner
+# promptfoo is run with: npx promptfoo@latest

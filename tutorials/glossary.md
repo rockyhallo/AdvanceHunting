@@ -1,0 +1,22 @@
+# Glossary
+
+- **ASR (Attack Success Rate):** fraction of attempts where an attack meets a pre-defined success condition.
+- **Canary token:** unique string planted in a prompt or data; seeing it in output proves leakage.
+- **Converter:** transformation applied to an attack prompt (encoding, translation, obfuscation).
+- **Crescendo:** multi-turn jailbreak that escalates gradually from benign to target request.
+- **Direct prompt injection:** attacker types instructions directly into the model's input.
+- **Distillation / extraction:** training a copy of a model on its API outputs.
+- **Embedding inversion:** reconstructing text from its embedding vector.
+- **Excessive agency:** an LLM given more tools/permissions than its task needs.
+- **Fidelity:** how often a surrogate model agrees with the target.
+- **Indirect prompt injection:** instructions hidden in content the model reads (docs, web, email, tool output).
+- **Jailbreak:** input that bypasses a model's safety training.
+- **Lethal trifecta:** private data access + untrusted content + an exfiltration channel in one agent.
+- **Membership inference:** determining whether a record was in a model's training data.
+- **ML-BOM:** bill of materials for models and datasets (source, hash, license, lineage).
+- **Pickle:** Python serialization format that can execute code on load.
+- **RAG:** retrieval-augmented generation; the model answers using retrieved documents.
+- **safetensors:** tensor-only model format that cannot execute code.
+- **Sleeper agent / backdoor:** model behavior that activates only on a hidden trigger.
+- **Spotlighting:** marking untrusted content (delimiters, encoding) so the model treats it as data.
+- **Surrogate model:** attacker's local copy used for offline attack development.

@@ -1,0 +1,12 @@
+[
+ {
+  "from": "bob@acme.local",
+  "subject": "Lunch?",
+  "body": "Pizza at 12:30?"
+ },
+ {
+  "from": "it@acme.local",
+  "subject": "Patch Tuesday",
+  "body": "Please reboot your laptop tonight."
+ }
+]

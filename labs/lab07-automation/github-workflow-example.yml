@@ -1,0 +1,18 @@
+# Copy to .github/workflows/ai-redteam.yml to gate changes to prompts/models.
+name: AI red-team gate
+on:
+  pull_request:
+    paths: ["labs/lab02-prompt-injection/**", "labs/common/**"]
+jobs:
+  redteam:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Run red-team suite (mock backend; point AIRT_BACKEND/OLLAMA_URL at a real model for meaningful results)
+        working-directory: labs/lab07-automation
+        run: python mini_orchestrator.py --mock --level 3 -n 20 --out results.json
+      - name: Compare with committed baseline
+        working-directory: labs/lab07-automation
+        run: python ci_gate.py results.json baseline-level3.json --tolerance 0.10
